@@ -54,6 +54,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
   bool _hasInternet = true;
   late StreamSubscription<ConnectivityResult> _connectivitySubscription;
   bool _canGoBack = false;
+  DateTime? _lastBackPress;
 
   final String _webUrl = 'https://airvalencia.com';
 
@@ -152,13 +153,41 @@ class _WebViewScreenState extends State<WebViewScreen> {
     super.dispose();
   }
 
+  Future<bool> _onWillPop() async {
+    // If there's internet and webview can go back, handle webview navigation first
+    if (_hasInternet && _canGoBack) {
+      _controller.goBack();
+      return false;
+    }
+
+    // Handle app exit confirmation
+    final now = DateTime.now();
+    if (_lastBackPress == null ||
+        now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
+      _lastBackPress = now;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Press back again to exit'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Color(0xFF1053A2),
+        ),
+      );
+      return false;
+    }
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !(_hasInternet && _canGoBack),
+      canPop: false,
       onPopInvokedWithResult: (bool didPop, dynamic result) async {
-        if (!didPop && _hasInternet && _canGoBack) {
-          _controller.goBack();
+        if (!didPop) {
+          bool shouldExit = await _onWillPop();
+          if (shouldExit) {
+            SystemNavigator.pop();
+          }
         }
       },
       child: Scaffold(
