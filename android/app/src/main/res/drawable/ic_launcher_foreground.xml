@@ -1,0 +1,46 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+  
+  <!-- Safe area for adaptive icons is within 72dp (66% of 108dp) -->
+  <!-- White circle background - using safe area -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:pathData="M54,54m-30,0a30,30 0,1 1,60 0a30,30 0,1 1,-60 0"/>
+  
+  <!-- Air Valencia text -->
+  <group android:translateX="54"
+         android:translateY="48">
+    <!-- Simple "AV" text -->
+    <path
+        android:fillColor="#1053A2"
+        android:pathData="M-15,-8L-8,8L-5,8L-12,-8L-15,-8z"/>
+    <path
+        android:fillColor="#1053A2"
+        android:pathData="M-8,-8L-1,8L2,8L-5,-8L-8,-8z"/>
+    <path
+        android:fillColor="#1053A2"
+        android:pathData="M-10,0L-3,0L-3,2L-10,2z"/>
+    
+    <!-- V -->
+    <path
+        android:fillColor="#1053A2"
+        android:pathData="M5,-8L12,8L15,8L8,-8L5,-8z"/>
+    <path
+        android:fillColor="#1053A2"
+        android:pathData="M8,-8L15,8L12,8L5,-8L8,-8z"/>
+  </group>
+  
+  <!-- Small airplane symbol -->
+  <group android:translateX="54"
+         android:translateY="68">
+    <path
+        android:fillColor="#1053A2"
+        android:pathData="M0,-4L-3,2L3,2z"/>
+    <path
+        android:fillColor="#1053A2"
+        android:pathData="M-6,0L6,0L6,1L-6,1z"/>
+  </group>
+</vector>
