@@ -148,7 +148,7 @@ class _SplashScreenState extends State<SplashScreen>
                     const SizedBox(height: 8),
                     // Tagline
                     Text(
-                      'Your trusted travel partner',
+                      'A Gateway Of A Dream',
                       style: TextStyle(
                         fontSize: 16,
                         color: Colors.white.withOpacity(0.8),

@@ -204,53 +204,43 @@ class _WebViewScreenState extends State<WebViewScreen> {
   }
 
   Widget _buildWebView() {
-    return Stack(
-      children: [
-        WebViewWidget(controller: _controller),
-        // লোডিং স্ক্রিন
-        if (_isLoading)
-          Container(
-            color: Colors.white.withAlpha(230),
-            child: const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1053A2)),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Loading Air Valencia...',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        // ট্রান্সপ্যারেন্ট রিফ্রেশ বাটন — উপরে-ডান কোনায় overlay
-        if (_hasInternet && !_isLoading)
-          Positioned(
-            top: 4,
-            right: 4,
-            child: Material(
-              color: Colors.transparent, // ট্রান্সপ্যারেন্ট ব্যাকগ্রাউন্ড
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () {
-                  _controller.reload();
-                },
-                child: const Padding(
-                  padding: EdgeInsets.all(6),
-                  child: Icon(
-                    Icons.refresh,
-                    color: Color(0xFF1053A2),
-                    size: 22,
-                  ),
+    return RefreshIndicator(
+      // নিচে টান দিলে রিফ্রেশ হবে
+      color: const Color(0xFF1053A2),
+      backgroundColor: Colors.white,
+      onRefresh: () async {
+        await _controller.reload();
+        // পেজ লোড শেষ হওয়া পর্যন্ত অপেক্ষা
+        await Future.doWhile(() async {
+          await Future.delayed(const Duration(milliseconds: 200));
+          return _isLoading;
+        });
+      },
+      child: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          // লোডিং স্ক্রিন
+          if (_isLoading)
+            Container(
+              color: Colors.white.withAlpha(230),
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1053A2)),
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Loading Air Valencia...',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
