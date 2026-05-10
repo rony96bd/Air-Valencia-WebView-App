@@ -18,21 +18,7 @@ class AirValenciaApp extends StatelessWidget {
     return MaterialApp(
       title: 'Air Valencia',
       theme: ThemeData(
-        primarySwatch: MaterialColor(
-          0xFF1053A2,
-          <int, Color>{
-            50: Color(0xFFE3EDF7),
-            100: Color(0xFFBAD2EB),
-            200: Color(0xFF8DB4DE),
-            300: Color(0xFF5F96D1),
-            400: Color(0xFF3C80C7),
-            500: Color(0xFF1053A2),
-            600: Color(0xFF0E4C9A),
-            700: Color(0xFF0C4290),
-            800: Color(0xFF093986),
-            900: Color(0xFF052974),
-          },
-        ),
+        primaryColor: const Color(0xFF1053A2),
         useMaterial3: true,
       ),
       home: const SplashScreen(nextScreen: WebViewScreen()),
@@ -52,7 +38,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
   late final WebViewController _controller;
   bool _isLoading = true;
   bool _hasInternet = true;
-  late StreamSubscription<ConnectivityResult> _connectivitySubscription;
+  StreamSubscription? _connectivitySubscription;
   bool _canGoBack = false;
   DateTime? _lastBackPress;
 
@@ -62,7 +48,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
   void initState() {
     super.initState();
     _initializeWebView();
-    _checkConnectivity();
+    _checkInitialConnectivity();
     _listenToConnectivityChanges();
   }
 
@@ -75,70 +61,80 @@ class _WebViewScreenState extends State<WebViewScreen> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (int progress) {
-            if (progress == 100) {
-              setState(() {
-                _isLoading = false;
-              });
+            if (progress > 90) {
+              if (mounted) setState(() => _isLoading = false);
             }
           },
           onPageStarted: (String url) {
-            setState(() {
-              _isLoading = true;
-            });
+            if (mounted) setState(() => _isLoading = true);
           },
           onPageFinished: (String url) async {
-            setState(() {
-              _isLoading = false;
-            });
+            if (mounted) setState(() => _isLoading = false);
             _canGoBack = await _controller.canGoBack();
-            setState(() {});
           },
           onWebResourceError: (WebResourceError error) {
-            print('WebView Error: ${error.description}');
-            setState(() {
-              _isLoading = false;
-            });
-            // Don't immediately set _hasInternet to false, let connectivity check handle it
-            _checkConnectivity();
+            debugPrint('WebView Error: ${error.description}');
+            if (mounted) setState(() => _isLoading = false);
           },
         ),
       );
   }
 
-  Future<void> _checkConnectivity() async {
+  Future<void> _checkInitialConnectivity() async {
     final connectivityResult = await Connectivity().checkConnectivity();
-    bool hasConnection = connectivityResult != ConnectivityResult.none;
+    bool hasConnection = _isConnected(connectivityResult);
     
-    // Additional real internet check
     if (hasConnection) {
-      try {
-        final result = await InternetAddress.lookup('google.com');
-        hasConnection = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
-      } catch (_) {
-        hasConnection = false;
-      }
+      hasConnection = await _hasRealInternet();
     }
     
-    setState(() {
-      _hasInternet = hasConnection;
-    });
+    if (mounted) {
+      setState(() {
+        _hasInternet = hasConnection;
+      });
+    }
 
     if (_hasInternet) {
       _loadWebPage();
     }
   }
 
-  void _listenToConnectivityChanges() {
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
-      ConnectivityResult result,
-    ) {
-      final hasInternet = result != ConnectivityResult.none;
-      setState(() {
-        _hasInternet = hasInternet;
-      });
+  bool _isConnected(dynamic result) {
+    if (result is List<ConnectivityResult>) {
+      return result.isNotEmpty && !result.contains(ConnectivityResult.none);
+    }
+    return result != ConnectivityResult.none;
+  }
 
-      if (hasInternet && !_isLoading) {
-        _loadWebPage();
+  Future<bool> _hasRealInternet() async {
+    try {
+      final result = await InternetAddress.lookup('google.com');
+      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _listenToConnectivityChanges() {
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((result) async {
+      final bool currentlyConnected = _isConnected(result);
+      
+      if (currentlyConnected && !_hasInternet) {
+        final bool hasRealInternet = await _hasRealInternet();
+        if (hasRealInternet) {
+          if (mounted) {
+            setState(() {
+              _hasInternet = true;
+            });
+          }
+          _loadWebPage();
+        }
+      } else if (!currentlyConnected && _hasInternet) {
+        if (mounted) {
+          setState(() {
+            _hasInternet = false;
+          });
+        }
       }
     });
   }
@@ -149,18 +145,16 @@ class _WebViewScreenState extends State<WebViewScreen> {
 
   @override
   void dispose() {
-    _connectivitySubscription.cancel();
+    _connectivitySubscription?.cancel();
     super.dispose();
   }
 
   Future<bool> _onWillPop() async {
-    // If there's internet and webview can go back, handle webview navigation first
     if (_hasInternet && _canGoBack) {
       _controller.goBack();
       return false;
     }
 
-    // Handle app exit confirmation
     final now = DateTime.now();
     if (_lastBackPress == null ||
         now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
@@ -180,6 +174,13 @@ class _WebViewScreenState extends State<WebViewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // স্ট্যাটাস বার: নীল ব্যাকগ্রাউন্ড + সাদা আইকন
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Color(0xFF1053A2),           // নীল ব্যাকগ্রাউন্ড
+      statusBarIconBrightness: Brightness.light,    // সাদা আইকন (Android)
+      statusBarBrightness: Brightness.dark,         // সাদা আইকন (iOS)
+    ));
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (bool didPop, dynamic result) async {
@@ -191,53 +192,13 @@ class _WebViewScreenState extends State<WebViewScreen> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Color(0xFF1053A2),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(4.0),
-                  child: Image.asset(
-                    'assets/logo.png',
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Icon(
-                        Icons.flight,
-                        size: 20,
-                        color: Color(0xFF1053A2),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'Air Valencia',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-            ],
-          ),
-          backgroundColor: const Color(0xFF1053A2),
-          elevation: 0,
-          systemOverlayStyle: SystemUiOverlayStyle.light,
-          automaticallyImplyLeading: false,
-          actions: [
-            if (_hasInternet && !_isLoading)
-              IconButton(
-                icon: const Icon(Icons.refresh, color: Colors.white),
-                onPressed: () {
-                  _controller.reload();
-                },
-              ),
-          ],
+        backgroundColor: const Color(0xFF1053A2), // SafeArea-র বাইরে নীল থাকবে
+        body: SafeArea(
+          // SafeArea নিশ্চিত করে কন্টেন্ট স্ট্যাটাস বারের নিচে থাকে
+          child: _hasInternet
+              ? _buildWebView()
+              : _buildNoInternetScreen(),
         ),
-        body: _hasInternet ? _buildWebView() : _buildNoInternetScreen(),
       ),
     );
   }
@@ -246,20 +207,47 @@ class _WebViewScreenState extends State<WebViewScreen> {
     return Stack(
       children: [
         WebViewWidget(controller: _controller),
+        // লোডিং স্ক্রিন
         if (_isLoading)
-          const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1053A2)),
+          Container(
+            color: Colors.white.withAlpha(230),
+            child: const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1053A2)),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Loading Air Valencia...',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        // ট্রান্সপ্যারেন্ট রিফ্রেশ বাটন — উপরে-ডান কোনায় overlay
+        if (_hasInternet && !_isLoading)
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Material(
+              color: Colors.transparent, // ট্রান্সপ্যারেন্ট ব্যাকগ্রাউন্ড
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () {
+                  _controller.reload();
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(6),
+                  child: Icon(
+                    Icons.refresh,
+                    color: Color(0xFF1053A2),
+                    size: 22,
+                  ),
                 ),
-                SizedBox(height: 16),
-                Text(
-                  'Loading Air Valencia...',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-              ],
+              ),
             ),
           ),
       ],
@@ -296,7 +284,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
           const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: () {
-              _checkConnectivity();
+              _checkInitialConnectivity();
             },
             icon: const Icon(Icons.refresh),
             label: const Text('Try Again'),
